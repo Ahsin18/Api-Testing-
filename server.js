@@ -1,55 +1,65 @@
-require("dotenv").config();
+
+// Loading environment variables
+require('dotenv').config();
 
 const express = require("express");
-const connectDB = require("./config/db");
-const foodRoutes = require("./routes/foodRoutes");
-const orderRoutes = require("./routes/orderRoutes");
+const connectDB = require("./database");
+
+const studentRoutes = require("./routes/studentRoutes");
+const authRoutes = require("./routes/authRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Parse incoming JSON request bodies
+// Middleware
 app.use(express.json());
 
-// Health / home route
+// Home route
 app.get("/", (req, res) => {
-    res.status(200).json({
-        message: "Food Ordering Management API is running"
-    });
+    res.status(200).send("Student API is running");
 });
 
-// API routes
-app.use("/api/foods", foodRoutes);
-app.use("/api/orders", orderRoutes);
+// Authentication routes
+app.use("/api/auth", authRoutes);
 
-// Unknown route handler
-app.use((req, res) => {
-    res.status(404).json({
-        message: "API endpoint not found"
-    });
-});
+// Student routes
+app.use("/api/students", studentRoutes);
 
-// Central error handler
-app.use((err, req, res, next) => {
-    console.error("API error:", err);
-
-    if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
-        return res.status(400).json({ message: "Invalid JSON request body" });
+// Handling invalid JSON requests
+app.use((error, req, res, next) => {
+    if (
+        error instanceof SyntaxError &&
+        error.status === 400 &&
+        'body' in error
+    ) {
+        return res.status(400).json({
+            message: "Invalid JSON Request!"
+        });
     }
 
-    res.status(err.status || 500).json({
-        message: err.message || "Internal server error"
+    next(error);
+});
+
+// Unknown Routes
+app.use((req, res) => {
+    res.status(404).json({
+        message: "API Endpoint not found!"
     });
 });
 
-// Connect to MongoDB before starting the server
+// Start server only after DB connection is established
 async function startServer() {
     try {
+        if (!process.env.JWT_SECRET) {
+            throw new Error("JWT_SECRET is missing in .env file");
+        }
+
         await connectDB();
 
         app.listen(PORT, () => {
-            console.log(`Server is running at http://localhost:${PORT}`);
+            console.log(`Server is running on http://localhost:${PORT}`);
         });
+
     } catch (error) {
         console.error("Server startup failed:", error.message);
         process.exit(1);
